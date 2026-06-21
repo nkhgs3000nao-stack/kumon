@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>面談予約 - くもん教室</title>
 
-<!-- ============================================================
-  Firebase SDK (CDN / compat版・ビルド不要)
-============================================================ -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -84,6 +81,7 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
 .badge.booked{background:#FCE9E4; color:var(--accent-coral);}
 .del-btn{border:none; background:none; color:var(--graphite);opacity:.4; cursor:pointer; font-size:13px;}
 .del-btn:hover{opacity:1; color:var(--accent-coral);}
+.del-btn:disabled{opacity:.2; cursor:not-allowed;}
 
 .lock-screen{text-align:center;padding:30px 10px;}
 .lock-screen input{max-width:260px; margin:0 auto 12px;}
@@ -152,6 +150,7 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
   padding:5px 10px;
   cursor:pointer;
 }
+.cancel-btn:disabled{opacity:.4; cursor:not-allowed;}
 </style>
 </head>
 <body>
@@ -163,7 +162,6 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
     <p>保護者の方は「予約する」「予約の確認」、教室の先生は「教室管理」をお使いください</p>
   </header>
 
-  <!-- Firebase未設定の場合に出る案内 -->
   <div id="setupBanner" class="setup-banner" style="display:none;">
     ⚠️ Firebaseの設定が未入力です。このファイル内の <code>firebaseConfig</code> を、ご自身のFirebaseプロジェクトの値に書き換えてください。
   </div>
@@ -185,9 +183,9 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
     <div class="card" id="bookingFormCard" style="display:none;">
       <h2><span class="num">2</span>お子さんのお名前・連絡先</h2>
       <label for="pName">お子さんの名前（教室で呼んでいる名前で十分です）</label>
-      <input type="text" id="pName" placeholder="例：たろう">
+      <input type="text" id="pName" placeholder="例：たろう" maxlength="50">
       <label for="pPhone">連絡先（電話番号 または LINE名）</label>
-      <input type="text" id="pPhone" placeholder="例：090-XXXX-XXXX">
+      <input type="text" id="pPhone" placeholder="例：090-XXXX-XXXX" maxlength="30">
       <button class="primary" id="bookBtn">この時間で予約する</button>
       <div class="note">※ ここで入力した情報は、教室の先生のみが確認できます。他の保護者には公開されません。</div>
       <div class="confirm-box" id="confirmBox"></div>
@@ -206,7 +204,7 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
       <h2><span class="num">2</span>予約番号で確認する</h2>
       <p class="note">別の端末で予約した場合や、記録が消えてしまった場合は、予約確定時に表示された「予約番号」を入力してください。</p>
       <label for="lookupCode">予約番号</label>
-      <input type="text" id="lookupCode" placeholder="例：A3F9X2" style="text-transform:uppercase;">
+      <input type="text" id="lookupCode" placeholder="例：A3F9X2" style="text-transform:uppercase;" maxlength="6">
       <button class="primary" id="lookupBtn">確認する</button>
       <div id="lookupResult"></div>
     </div>
@@ -220,9 +218,12 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
       <input type="email" id="emailInput" placeholder="先生のメールアドレス">
       <input type="password" id="passInput" placeholder="パスワード">
       <button class="primary" id="loginBtn">ログイン</button>
-      <button class="linklike" id="registerBtn">はじめての方はこちら（アカウント作成）</button>
       <div class="error-msg" id="authError"></div>
-      <p class="note">アカウントは最初に1回だけ作成すれば十分です。以後は同じメールアドレスとパスワードでログインしてください。</p>
+      <p class="note">
+        アカウントは、サイト上ではなく <b>Firebaseコンソール → Authentication → Users → 「ユーザーを追加」</b> から、
+        先生自身が事前に1つだけ作成してください。サイト上に「アカウント作成」ボタンを置かないことで、
+        部外者が先生としてログインできてしまう不具合を防いでいます。
+      </p>
     </div>
 
     <div id="teacherPanel" style="display:none;">
@@ -259,13 +260,12 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
    ★★★ ここをあなた自身のFirebaseプロジェクトの値に書き換えてください ★★★
 ================================================================ */
 const firebaseConfig = {
-  apiKey: "AIzaSyBBF417Tz1sYNMrREYqvccjGChjz0GN2z8",
-  authDomain: "kumon-mendan.firebaseapp.com",
-  projectId: "kumon-mendan",
-  storageBucket: "kumon-mendan.firebasestorage.app",
-  messagingSenderId: "660276988740",
-  appId: "1:660276988740:web:e17a22833c3d243235a511",
-  measurementId: "G-K52QVLY1KB"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 /* ================================================================ */
 
@@ -280,6 +280,7 @@ const db = firebase.firestore();
 let slots = [];
 let selectedSlotId = null;
 let isTeacher = false;
+let busy = false; // 二重送信防止
 
 const MY_BOOKINGS_KEY = 'kumon-my-bookings';
 
@@ -296,7 +297,6 @@ function fmtDate(d){
   return `${dt.getMonth()+1}月${dt.getDate()}日（${days[dt.getDay()]}）`;
 }
 
-/* 予約番号を生成（読みやすい英数字6桁） */
 function generateCode(){
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 0,O,1,I は除外
   let code = '';
@@ -304,7 +304,6 @@ function generateCode(){
   return code;
 }
 
-/* この端末に予約記録を追加保存 */
 function saveMyBookingLocally(code, date, time){
   let list = [];
   try{ list = JSON.parse(localStorage.getItem(MY_BOOKINGS_KEY)) || []; }catch(e){ list = []; }
@@ -369,50 +368,70 @@ function selectSlot(id){
   document.getElementById('bookingFormCard').scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
+/* 【修正】枠の更新と予約データの作成を1つのトランザクションにまとめる。
+   どちらか片方だけ成功する「幽霊予約」状態を防ぐ。 */
 async function bookSlot(){
+  if(busy) return;
   const name = document.getElementById('pName').value.trim();
   const phone = document.getElementById('pPhone').value.trim();
   if(!selectedSlotId){ showToast('時間を選んでください'); return; }
   if(!name){ showToast('お名前を入力してください'); return; }
-  const slot = slots.find(s=>s.id===selectedSlotId);
-  if(!slot || slot.status==='booked'){ showToast('この枠はすでに予約されています'); return; }
+  if(name.length > 50 || phone.length > 30){ showToast('入力が長すぎます'); return; }
 
+  const slotRef = db.collection('slots').doc(selectedSlotId);
   const code = generateCode();
+  const bookingRef = db.collection('bookings').doc(code);
+
+  busy = true;
+  document.getElementById('bookBtn').disabled = true;
 
   try{
-    await db.collection('slots').doc(slot.id).update({status:'booked'});
-    await db.collection('bookings').doc(code).set({
-      slotId: slot.id, name, phone, date: slot.date, time: slot.time
+    const slotSnapshot = slots.find(s=>s.id===selectedSlotId);
+    await db.runTransaction(async (tx)=>{
+      const slotDoc = await tx.get(slotRef);
+      if(!slotDoc.exists) throw new Error('この枠は削除されています');
+      if(slotDoc.data().status === 'booked') throw new Error('この枠はすでに予約されています');
+
+      tx.update(slotRef, {status:'booked'});
+      tx.set(bookingRef, {
+        slotId: selectedSlotId,
+        name, phone,
+        date: slotDoc.data().date,
+        time: slotDoc.data().time
+      });
     });
-  }catch(e){
-    showToast('予約に失敗しました。電波状況を確認して、もう一度お試しください。');
-    console.error(e);
-    return;
-  }
 
-  saveMyBookingLocally(code, slot.date, slot.time);
+    saveMyBookingLocally(code, slotSnapshot.date, slotSnapshot.time);
 
-  const box = document.getElementById('confirmBox');
-  box.innerHTML = `
-    予約が確定しました。<br><b>${fmtDate(slot.date)} ${slot.time}〜</b><br>当日、教室にてお待ちしております。
-    <div class="code-box">
-      <div>
-        <div style="font-size:11px;opacity:.8;">予約番号（後で確認する際に使います）</div>
-        <div class="code-text">${code}</div>
+    const box = document.getElementById('confirmBox');
+    box.innerHTML = `
+      予約が確定しました。<br><b>${fmtDate(slotSnapshot.date)} ${slotSnapshot.time}〜</b><br>当日、教室にてお待ちしております。
+      <div class="code-box">
+        <div>
+          <div style="font-size:11px;opacity:.8;">予約番号（後で確認する際に使います）</div>
+          <div class="code-text">${code}</div>
+        </div>
+        <button id="copyCodeBtn" data-code="${code}">コピー</button>
       </div>
-      <button id="copyCodeBtn" data-code="${code}">コピー</button>
-    </div>
-    <div class="note">この番号は「予約の確認」タブで予約状況を確認・キャンセルする際に必要です。スクリーンショットを撮るか、メモしておくことをおすすめします。</div>
-  `;
-  box.classList.add('show');
-  document.getElementById('copyCodeBtn').addEventListener('click', (e)=>{
-    navigator.clipboard.writeText(e.target.dataset.code).then(()=>showToast('コピーしました'));
-  });
+      <div class="note">この番号は「予約の確認」タブで予約状況を確認・キャンセルする際に必要です。スクリーンショットを撮るか、メモしておくことをおすすめします。</div>
+    `;
+    box.classList.add('show');
+    document.getElementById('copyCodeBtn').addEventListener('click', (e)=>{
+      navigator.clipboard.writeText(e.target.dataset.code).then(()=>showToast('コピーしました'));
+    });
+    document.getElementById('pName').value='';
+    document.getElementById('pPhone').value='';
+    selectedSlotId = null;
 
-  document.getElementById('pName').value='';
-  document.getElementById('pPhone').value='';
-  selectedSlotId = null;
+  }catch(e){
+    showToast(e.message || '予約に失敗しました。もう一度お試しください。');
+    console.error(e);
+  }finally{
+    busy = false;
+    document.getElementById('bookBtn').disabled = false;
+  }
 }
+document.getElementById('bookBtn').addEventListener('click', bookSlot);
 
 /* ---------------- 保護者側：予約の確認 ---------------- */
 async function renderMyBookings(){
@@ -455,17 +474,37 @@ async function renderMyBookings(){
     btn.addEventListener('click', async ()=>{
       const code = btn.dataset.code;
       const slotId = btn.dataset.slot;
+      if(btn.disabled) return;
       if(!btn.dataset.removeOnly){
         if(!confirm('この予約を本当にキャンセルしますか？')) return;
+        btn.disabled = true;
         try{
-          if(slotId){ await db.collection('slots').doc(slotId).update({status:'open'}); }
-          await db.collection('bookings').doc(code).delete();
-        }catch(e){ showToast('キャンセルに失敗しました'); return; }
+          await cancelBookingTransaction(code, slotId);
+        }catch(e){
+          showToast(e.message || 'キャンセルに失敗しました');
+          btn.disabled = false;
+          return;
+        }
       }
       removeMyBookingLocally(code);
       showToast('キャンセルしました');
       renderMyBookings();
     });
+  });
+}
+
+/* 【修正】キャンセルも「枠を空きに戻す」「予約データを削除する」を1トランザクションに */
+async function cancelBookingTransaction(code, slotId){
+  const bookingRef = db.collection('bookings').doc(code);
+  const slotRef = slotId ? db.collection('slots').doc(slotId) : null;
+  await db.runTransaction(async (tx)=>{
+    const bookingDoc = await tx.get(bookingRef);
+    if(!bookingDoc.exists) throw new Error('この予約は既にキャンセル済みのようです');
+    if(slotRef){
+      const slotDoc = await tx.get(slotRef);
+      if(slotDoc.exists){ tx.update(slotRef, {status:'open'}); }
+    }
+    tx.delete(bookingRef);
   });
 }
 
@@ -488,7 +527,6 @@ async function lookupByCode(){
         <div class="mb-code">予約番号：${code}</div>
       </div>
     `;
-    // この端末にも記録として追加しておく
     if(!getMyBookingsLocally().some(b=>b.code===code)){
       saveMyBookingLocally(code, data.date, data.time);
     }
@@ -498,7 +536,10 @@ async function lookupByCode(){
 }
 document.getElementById('lookupBtn').addEventListener('click', lookupByCode);
 
-/* ---------------- 先生側：ログイン ---------------- */
+/* ---------------- 先生側：ログイン ----------------
+   【修正】自己アカウント作成ボタンを廃止。
+   先生アカウントはFirebaseコンソールの Authentication > Users から
+   事前に1つだけ作成しておく運用にする（誰でも先生になれる脆弱性を防止）。 */
 document.getElementById('loginBtn').addEventListener('click', async ()=>{
   const email = document.getElementById('emailInput').value.trim();
   const pass = document.getElementById('passInput').value;
@@ -507,22 +548,6 @@ document.getElementById('loginBtn').addEventListener('click', async ()=>{
     await auth.signInWithEmailAndPassword(email, pass);
   }catch(e){
     document.getElementById('authError').textContent = 'ログインできませんでした：' + e.message;
-  }
-});
-
-document.getElementById('registerBtn').addEventListener('click', async ()=>{
-  const email = document.getElementById('emailInput').value.trim();
-  const pass = document.getElementById('passInput').value;
-  document.getElementById('authError').textContent = '';
-  if(!email || pass.length < 6){
-    document.getElementById('authError').textContent = 'メールアドレスと6文字以上のパスワードを入力してください';
-    return;
-  }
-  try{
-    await auth.createUserWithEmailAndPassword(email, pass);
-    showToast('アカウントを作成しました');
-  }catch(e){
-    document.getElementById('authError').textContent = '作成できませんでした：' + e.message;
   }
 });
 
@@ -558,7 +583,6 @@ async function addSlot(){
   }
 }
 document.getElementById('addSlotBtn').addEventListener('click', addSlot);
-document.getElementById('bookBtn').addEventListener('click', bookSlot);
 
 function renderTeacher(){
   if(!isTeacher) return;
@@ -587,13 +611,26 @@ function renderTeacher(){
       btn.addEventListener('click', async (e)=>{
         const id = e.target.getAttribute('data-id');
         const code = e.target.getAttribute('data-code');
+        e.target.disabled = true;
         try{
-          await db.collection('slots').doc(id).delete();
-          if(code){ await db.collection('bookings').doc(code).delete(); }
-        }catch(err){ showToast('削除に失敗しました'); }
+          await deleteSlotTransaction(id, code);
+        }catch(err){
+          showToast('削除に失敗しました');
+          e.target.disabled = false;
+        }
       });
     });
   }
+}
+
+/* 【修正】先生による削除も1トランザクションにまとめる */
+async function deleteSlotTransaction(slotId, code){
+  const slotRef = db.collection('slots').doc(slotId);
+  const bookingRef = code ? db.collection('bookings').doc(code) : null;
+  await db.runTransaction(async (tx)=>{
+    tx.delete(slotRef);
+    if(bookingRef){ tx.delete(bookingRef); }
+  });
 }
 
 /* ---------------- タブ切替 ---------------- */
