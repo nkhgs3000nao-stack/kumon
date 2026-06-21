@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>面談予約 - くもん教室</title>
+
+<!-- ============================================================
+  Firebase SDK (CDN / compat版・ビルド不要)
+============================================================ -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap');
+
+:root{
+  --ink-navy:#1F2A44;
+  --paper:#F7F4EA;
+  --line-blue:#B7C2DE;
+  --accent-coral:#E2654B;
+  --moss:#5E8868;
+  --graphite:#4A453C;
+  --paper-shadow: rgba(31,42,68,0.08);
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family:'Zen Kaku Gothic New', sans-serif;
+  background:var(--paper);
+  color:var(--graphite);
+  background-image: linear-gradient(var(--line-blue) 1px, transparent 1px);
+  background-size: 100% 2.1em;
+  background-position: 0 5.2em;
+}
+.wrap{max-width:760px;margin:0 auto;padding:28px 20px 60px;}
+header.app-head{text-align:center;padding:18px 0 22px;}
+header.app-head .eyebrow{font-size:12px;letter-spacing:.18em;color:var(--accent-coral);font-weight:700;}
+header.app-head h1{font-family:'Zen Maru Gothic', sans-serif;font-weight:900;font-size:30px;color:var(--ink-navy);margin:6px 0 2px;}
+header.app-head p{margin:0;font-size:13px;color:var(--graphite);opacity:.75;}
+
+.tabs{display:flex;gap:0;margin:22px 0 26px;border-bottom:2px solid var(--ink-navy);}
+.tab-btn{flex:1;background:none;border:none;font-family:'Zen Maru Gothic', sans-serif;font-weight:700;font-size:14px;padding:10px 6px;cursor:pointer;color:var(--graphite);opacity:.55;position:relative;transition:opacity .2s;}
+.tab-btn.active{opacity:1; color:var(--ink-navy);}
+.tab-btn.active::after{content:'';position:absolute;bottom:-2px; left:0; right:0;height:3px;background:var(--accent-coral);}
+
+.card{background:#fff;border:1px solid var(--line-blue);border-radius:6px;padding:20px 22px;margin-bottom:16px;box-shadow: 0 2px 0 var(--paper-shadow);}
+.card h2{font-family:'Zen Maru Gothic', sans-serif;font-size:16px;color:var(--ink-navy);margin:0 0 14px;display:flex;align-items:center;gap:8px;}
+.card h2 .num{font-size:11px;background:var(--ink-navy);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+label{display:block;font-size:12px;font-weight:700;color:var(--ink-navy);margin:12px 0 5px;}
+input[type=date], input[type=time], input[type=text], input[type=tel], input[type=email], input[type=password]{
+  width:100%;padding:9px 10px;border:1px solid var(--line-blue);border-radius:4px;font-size:14px;font-family:inherit;background:#FDFCF8;
+}
+input:focus{outline:2px solid var(--accent-coral); outline-offset:1px;}
+.row{display:flex; gap:10px;}
+.row > div{flex:1;}
+
+button.primary{margin-top:16px;background:var(--ink-navy);color:#fff;border:none;border-radius:4px;padding:11px 18px;font-family:'Zen Maru Gothic', sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:transform .12s, background .2s;}
+button.primary:hover{background:var(--accent-coral);}
+button.primary:active{transform:scale(.97);}
+button.primary:disabled{opacity:.5; cursor:not-allowed;}
+button.linklike{background:none;border:none;color:var(--ink-navy);text-decoration:underline;font-size:12px;cursor:pointer;padding:0;margin-top:10px;}
+
+.slot-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media (max-width:480px){.slot-grid{grid-template-columns:1fr;}}
+.slot{border:1.5px solid var(--line-blue);border-radius:5px;padding:11px 12px;background:#FDFCF8;cursor:pointer;transition:border-color .15s, background .15s;position:relative;}
+.slot:hover{border-color:var(--accent-coral);}
+.slot .date{font-size:11px;color:var(--graphite);opacity:.7;}
+.slot .time{font-family:'Zen Maru Gothic', sans-serif;font-weight:700;font-size:17px;color:var(--ink-navy);letter-spacing:.03em;}
+.slot.taken{background:#F1EEE4;cursor:not-allowed;opacity:.55;}
+.slot.taken:hover{border-color:var(--line-blue);}
+.slot.selected{border-color:var(--accent-coral);background:#FFF3EE;}
+.stamp{position:absolute;top:8px; right:8px;width:34px;height:34px;border-radius:50%;border:2px solid var(--accent-coral);color:var(--accent-coral);font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;transform:rotate(-12deg);font-family:'Zen Maru Gothic';letter-spacing:-1px;}
+
+.empty{text-align:center;padding:30px 10px;color:var(--graphite);opacity:.6;font-size:13px;}
+.list-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px dashed var(--line-blue);font-size:13px; gap:8px;}
+.list-row:last-child{border-bottom:none;}
+.list-row .ltime{font-weight:700; color:var(--ink-navy); width:120px; flex-shrink:0;}
+.list-row .lname{flex:1; padding:0 8px;}
+.badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:700; white-space:nowrap;}
+.badge.open{background:#E8F0E9; color:var(--moss);}
+.badge.booked{background:#FCE9E4; color:var(--accent-coral);}
+.del-btn{border:none; background:none; color:var(--graphite);opacity:.4; cursor:pointer; font-size:13px;}
+.del-btn:hover{opacity:1; color:var(--accent-coral);}
+
+.lock-screen{text-align:center;padding:30px 10px;}
+.lock-screen input{max-width:260px; margin:0 auto 12px;}
+.note{font-size:11.5px;color:var(--graphite);opacity:.65;line-height:1.6;margin-top:4px;}
+.error-msg{color:var(--accent-coral); font-size:12px; margin-top:8px; min-height:1em;}
+
+.confirm-box{border:1.5px dashed var(--moss);background:#F4F8F4;border-radius:6px;padding:16px;margin-top:14px;font-size:13px;display:none;}
+.confirm-box.show{display:block;}
+.confirm-box b{color:var(--ink-navy);}
+
+.toast{position:fixed;bottom:24px; left:50%;transform:translateX(-50%) translateY(10px);background:var(--ink-navy);color:#fff;padding:10px 20px;border-radius:6px;font-size:13px;opacity:0;transition:opacity .25s, transform .25s;pointer-events:none;z-index:50;}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+.setup-banner{
+  background:#FCE9E4;border:1.5px dashed var(--accent-coral);border-radius:6px;
+  padding:14px 16px;margin-bottom:18px;font-size:12.5px;line-height:1.7;color:var(--ink-navy);
+}
+.setup-banner code{background:#fff;padding:1px 5px;border-radius:3px;font-size:11.5px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app-head">
+    <div class="eyebrow">公文式 ◯◯教室</div>
+    <h1>個別面談 予約帳</h1>
+    <p>保護者の方は「予約する」、教室の先生は「教室管理」をお使いください</p>
+  </header>
+
+  <!-- Firebase未設定の場合に出る案内 -->
+  <div id="setupBanner" class="setup-banner" style="display:none;">
+    ⚠️ Firebaseの設定が未入力です。このファイル内の <code>firebaseConfig</code> を、ご自身のFirebaseプロジェクトの値に書き換えてください。手順はチャットの説明をご覧ください。
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="parent">📔 予約する（保護者用）</button>
+    <button class="tab-btn" data-tab="teacher">🖋 教室管理（先生用）</button>
+  </div>
+
+  <!-- 保護者用 -->
+  <div id="tab-parent">
+    <div class="card">
+      <h2><span class="num">1</span>空いている時間を選ぶ</h2>
+      <div id="slotList" class="slot-grid"></div>
+      <div id="emptyParent" class="empty" style="display:none;">現在、予約できる枠がありません。教室からのご連絡をお待ちください。</div>
+    </div>
+
+    <div class="card" id="bookingFormCard" style="display:none;">
+      <h2><span class="num">2</span>お子さんのお名前・連絡先</h2>
+      <label for="pName">お子さんの名前（教室で呼んでいる名前で十分です）</label>
+      <input type="text" id="pName" placeholder="例：たろう">
+      <label for="pPhone">連絡先（電話番号 または LINE名）</label>
+      <input type="text" id="pPhone" placeholder="例：090-XXXX-XXXX">
+      <button class="primary" id="bookBtn">この時間で予約する</button>
+      <div class="note">※ ここで入力した情報は、教室の先生のみが確認できます。他の保護者には公開されません。</div>
+      <div class="confirm-box" id="confirmBox"></div>
+    </div>
+  </div>
+
+  <!-- 先生用 -->
+  <div id="tab-teacher" style="display:none;">
+
+    <div id="lockScreen" class="card lock-screen">
+      <h2 style="justify-content:center;">先生ログイン</h2>
+      <input type="email" id="emailInput" placeholder="先生のメールアドレス">
+      <input type="password" id="passInput" placeholder="パスワード">
+      <button class="primary" id="loginBtn">ログイン</button>
+      <button class="linklike" id="registerBtn">はじめての方はこちら（アカウント作成）</button>
+      <div class="error-msg" id="authError"></div>
+      <p class="note">アカウントは最初に1回だけ作成すれば十分です。以後は同じメールアドレスとパスワードでログインしてください。</p>
+    </div>
+
+    <div id="teacherPanel" style="display:none;">
+      <div class="card">
+        <h2><span class="num">1</span>面談できる時間枠を追加する</h2>
+        <div class="row">
+          <div>
+            <label for="tDate">日付</label>
+            <input type="date" id="tDate">
+          </div>
+          <div>
+            <label for="tTime">開始時刻</label>
+            <input type="time" id="tTime" value="16:00">
+          </div>
+        </div>
+        <button class="primary" id="addSlotBtn">枠を追加する</button>
+        <button class="linklike" id="logoutBtn">ログアウト</button>
+      </div>
+
+      <div class="card">
+        <h2><span class="num">2</span>予約一覧（先生のみ閲覧可）</h2>
+        <div id="teacherList"></div>
+        <div id="emptyTeacher" class="empty" style="display:none;">まだ枠が登録されていません。上のフォームから追加してください。</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================================================================
+   ★★★ ここをあなた自身のFirebaseプロジェクトの値に書き換えてください ★★★
+   Firebaseコンソール → プロジェクトの設定 → マイアプリ → SDKの設定
+   でコピーできます。
+================================================================ */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+/* ================================================================ */
+
+if(firebaseConfig.apiKey === "YOUR_API_KEY"){
+  document.getElementById('setupBanner').style.display = 'block';
+}
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let slots = [];      // 公開コレクション: 日時・空き状況のみ（個人情報なし）
+let bookingsCache = {}; // slotId -> {name, phone}  ※先生ログイン時のみ取得
+let selectedSlotId = null;
+let isTeacher = false;
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function fmtDate(d){
+  const dt = new Date(d+'T00:00:00');
+  const days = ['日','月','火','水','木','金','土'];
+  return `${dt.getMonth()+1}月${dt.getDate()}日（${days[dt.getDay()]}）`;
+}
+
+/* ---------------- Firestore: 公開スロット情報のリアルタイム監視 ---------------- */
+db.collection('slots').onSnapshot(snap=>{
+  slots = [];
+  snap.forEach(doc=> slots.push({id: doc.id, ...doc.data()}));
+  slots.sort((a,b)=> (a.date+a.time).localeCompare(b.date+b.time));
+  renderParent();
+  renderTeacher();
+});
+
+/* 先生ログイン中だけ bookings（氏名・連絡先）も購読 */
+let unsubscribeBookings = null;
+function subscribeBookings(){
+  unsubscribeBookings = db.collection('bookings').onSnapshot(snap=>{
+    bookingsCache = {};
+    snap.forEach(doc=> bookingsCache[doc.id] = doc.data());
+    renderTeacher();
+  });
+}
+
+/* ---------------- 保護者側 ---------------- */
+function renderParent(){
+  const list = document.getElementById('slotList');
+  const empty = document.getElementById('emptyParent');
+  list.innerHTML = '';
+  if(slots.length===0){
+    empty.style.display='block';
+  } else {
+    empty.style.display='none';
+    slots.forEach(s=>{
+      const div = document.createElement('div');
+      div.className = 'slot' + (s.status==='booked' ? ' taken' : '') + (s.id===selectedSlotId ? ' selected':'');
+      div.innerHTML = `<div class="date">${fmtDate(s.date)}</div><div class="time">${s.time}〜</div>`;
+      if(s.status==='booked'){
+        div.innerHTML += `<div class="stamp">予約済</div>`;
+      } else {
+        div.addEventListener('click', ()=>selectSlot(s.id));
+      }
+      list.appendChild(div);
+    });
+  }
+}
+
+function selectSlot(id){
+  selectedSlotId = id;
+  renderParent();
+  document.getElementById('bookingFormCard').style.display='block';
+  document.getElementById('confirmBox').classList.remove('show');
+  document.getElementById('bookingFormCard').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+async function bookSlot(){
+  const name = document.getElementById('pName').value.trim();
+  const phone = document.getElementById('pPhone').value.trim();
+  if(!selectedSlotId){ showToast('時間を選んでください'); return; }
+  if(!name){ showToast('お名前を入力してください'); return; }
+  const slot = slots.find(s=>s.id===selectedSlotId);
+  if(!slot || slot.status==='booked'){ showToast('この枠はすでに予約されています'); return; }
+
+  try{
+    // スロット（公開情報）は空き→予約済みに更新
+    await db.collection('slots').doc(slot.id).update({status:'booked'});
+    // 氏名・連絡先は非公開コレクションへ（先生ログイン時のみ読める）
+    await db.collection('bookings').doc(slot.id).set({name, phone, date:slot.date, time:slot.time});
+  }catch(e){
+    showToast('予約に失敗しました。電波状況を確認して、もう一度お試しください。');
+    console.error(e);
+    return;
+  }
+
+  const box = document.getElementById('confirmBox');
+  box.innerHTML = `予約が確定しました。<br><b>${fmtDate(slot.date)} ${slot.time}〜</b><br>当日、教室にてお待ちしております。`;
+  box.classList.add('show');
+  document.getElementById('pName').value='';
+  document.getElementById('pPhone').value='';
+  selectedSlotId = null;
+}
+
+/* ---------------- 先生側：ログイン ---------------- */
+document.getElementById('loginBtn').addEventListener('click', async ()=>{
+  const email = document.getElementById('emailInput').value.trim();
+  const pass = document.getElementById('passInput').value;
+  document.getElementById('authError').textContent = '';
+  try{
+    await auth.signInWithEmailAndPassword(email, pass);
+  }catch(e){
+    document.getElementById('authError').textContent = 'ログインできませんでした：' + e.message;
+  }
+});
+
+document.getElementById('registerBtn').addEventListener('click', async ()=>{
+  const email = document.getElementById('emailInput').value.trim();
+  const pass = document.getElementById('passInput').value;
+  document.getElementById('authError').textContent = '';
+  if(!email || pass.length < 6){
+    document.getElementById('authError').textContent = 'メールアドレスと6文字以上のパスワードを入力してください';
+    return;
+  }
+  try{
+    await auth.createUserWithEmailAndPassword(email, pass);
+    showToast('アカウントを作成しました');
+  }catch(e){
+    document.getElementById('authError').textContent = '作成できませんでした：' + e.message;
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', ()=> auth.signOut());
+
+auth.onAuthStateChanged(user=>{
+  isTeacher = !!user;
+  if(isTeacher){
+    document.getElementById('lockScreen').style.display='none';
+    document.getElementById('teacherPanel').style.display='block';
+    subscribeBookings();
+  } else {
+    document.getElementById('lockScreen').style.display='block';
+    document.getElementById('teacherPanel').style.display='none';
+    if(unsubscribeBookings) unsubscribeBookings();
+    bookingsCache = {};
+  }
+});
+
+/* ---------------- 先生側：枠の追加・一覧・削除 ---------------- */
+async function addSlot(){
+  const date = document.getElementById('tDate').value;
+  const time = document.getElementById('tTime').value;
+  if(!date || !time){ showToast('日付と時刻を入力してください'); return; }
+  const dup = slots.find(s=>s.date===date && s.time===time);
+  if(dup){ showToast('同じ時間の枠が既にあります'); return; }
+  try{
+    await db.collection('slots').add({date, time, status:'open'});
+    showToast('枠を追加しました');
+  }catch(e){
+    showToast('追加に失敗しました');
+    console.error(e);
+  }
+}
+document.getElementById('addSlotBtn').addEventListener('click', addSlot);
+document.getElementById('bookBtn').addEventListener('click', bookSlot);
+
+function renderTeacher(){
+  if(!isTeacher) return;
+  const list = document.getElementById('teacherList');
+  const empty = document.getElementById('emptyTeacher');
+  list.innerHTML='';
+  if(slots.length===0){
+    empty.style.display='block';
+  } else {
+    empty.style.display='none';
+    slots.forEach(s=>{
+      const b = bookingsCache[s.id];
+      const row = document.createElement('div');
+      row.className='list-row';
+      row.innerHTML = `
+        <div class="ltime">${fmtDate(s.date)} ${s.time}</div>
+        <div class="lname">${s.status==='booked' && b ? (b.name+'　'+(b.phone||'')) : (s.status==='booked' ? '読み込み中…' : '（空き）')}</div>
+        <span class="badge ${s.status==='booked'?'booked':'open'}">${s.status==='booked'?'予約済':'空き'}</span>
+        <button class="del-btn" data-id="${s.id}">削除</button>
+      `;
+      list.appendChild(row);
+    });
+    list.querySelectorAll('.del-btn').forEach(btn=>{
+      btn.addEventListener('click', async (e)=>{
+        const id = e.target.getAttribute('data-id');
+        try{
+          await db.collection('slots').doc(id).delete();
+          await db.collection('bookings').doc(id).delete();
+        }catch(err){ showToast('削除に失敗しました'); }
+      });
+    });
+  }
+}
+
+/* ---------------- タブ切替 ---------------- */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-parent').style.display = btn.dataset.tab==='parent' ? 'block':'none';
+    document.getElementById('tab-teacher').style.display = btn.dataset.tab==='teacher' ? 'block':'none';
+  });
+});
+</script>
+</body>
+</html>
