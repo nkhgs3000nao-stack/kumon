@@ -3,25 +3,31 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // 「枠」コレクション：日付・時刻・空き状況のみ（個人情報なし）
-    // 誰でも読める / 誰でも「空き→予約済み」に変更できる（保護者の予約用）
-    // 新規追加・削除は先生（ログイン済み）のみ
     match /slots/{slotId} {
       allow read: if true;
       allow create, delete: if request.auth != null;
       allow update: if
-        // 先生がログインしている場合は自由に更新可
         request.auth != null
         ||
-        // 保護者の場合は「open → booked」への変更のみ許可
-        (resource.data.status == 'open' && request.resource.data.status == 'booked');
+        // 保護者による予約（open→booked）
+        (resource.data.status == 'open' && request.resource.data.status == 'booked')
+        ||
+        // 保護者によるキャンセル（booked→open）
+        (resource.data.status == 'booked' && request.resource.data.status == 'open');
     }
 
     // 「予約」コレクション：氏名・連絡先など個人情報を含む
-    // 保護者は新規作成のみ可能（自分の予約を作る）。読み取りは先生のみ。
-    match /bookings/{slotId} {
+    // ドキュメントID = 予約番号（ランダムな英数字6桁）
+    //
+    // get（予約番号を1件ピンポイントで指定して取得）  → 誰でも可
+    //   ＝ 保護者は「自分の予約番号」を知っていればその1件だけ見られる
+    // list（コレクション全体を一覧取得）              → 先生のログインが必要
+    //   ＝ 保護者が全保護者の予約を一覧で見ることはできない
+    match /bookings/{bookingCode} {
+      allow get: if true;
+      allow list: if request.auth != null;
       allow create: if true;
-      allow read: if request.auth != null;
-      allow delete: if request.auth != null;
+      allow delete: if true;   // 保護者が自分の予約をキャンセルできるように許可
       allow update: if false;
     }
   }
