@@ -41,7 +41,7 @@ header.app-head h1{font-family:'Zen Maru Gothic', sans-serif;font-weight:900;fon
 header.app-head p{margin:0;font-size:13px;color:var(--graphite);opacity:.75;}
 
 .tabs{display:flex;gap:0;margin:22px 0 26px;border-bottom:2px solid var(--ink-navy);}
-.tab-btn{flex:1;background:none;border:none;font-family:'Zen Maru Gothic', sans-serif;font-weight:700;font-size:14px;padding:10px 6px;cursor:pointer;color:var(--graphite);opacity:.55;position:relative;transition:opacity .2s;}
+.tab-btn{flex:1;background:none;border:none;font-family:'Zen Maru Gothic', sans-serif;font-weight:700;font-size:13px;padding:10px 4px;cursor:pointer;color:var(--graphite);opacity:.55;position:relative;transition:opacity .2s;}
 .tab-btn.active{opacity:1; color:var(--ink-navy);}
 .tab-btn.active::after{content:'';position:absolute;bottom:-2px; left:0; right:0;height:3px;background:var(--accent-coral);}
 
@@ -94,6 +94,35 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
 .confirm-box.show{display:block;}
 .confirm-box b{color:var(--ink-navy);}
 
+.code-box{
+  background:var(--ink-navy);
+  color:#fff;
+  border-radius:6px;
+  padding:14px 16px;
+  margin-top:10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.code-box .code-text{
+  font-family:'Zen Maru Gothic', sans-serif;
+  font-weight:900;
+  font-size:22px;
+  letter-spacing:.12em;
+}
+.code-box button{
+  background:var(--accent-coral);
+  color:#fff;
+  border:none;
+  border-radius:4px;
+  padding:7px 12px;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+  flex-shrink:0;
+}
+
 .toast{position:fixed;bottom:24px; left:50%;transform:translateX(-50%) translateY(10px);background:var(--ink-navy);color:#fff;padding:10px 20px;border-radius:6px;font-size:13px;opacity:0;transition:opacity .25s, transform .25s;pointer-events:none;z-index:50;}
 .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
 
@@ -102,6 +131,27 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
   padding:14px 16px;margin-bottom:18px;font-size:12.5px;line-height:1.7;color:var(--ink-navy);
 }
 .setup-banner code{background:#fff;padding:1px 5px;border-radius:3px;font-size:11.5px;}
+
+.mybooking-card{
+  border:1.5px solid var(--moss);
+  background:#F4F8F4;
+  border-radius:6px;
+  padding:14px 16px;
+  margin-bottom:10px;
+  font-size:13px;
+}
+.mybooking-card .mb-date{font-weight:700; color:var(--ink-navy); font-size:15px;}
+.mybooking-card .mb-code{font-size:11px; opacity:.6; margin-top:4px;}
+.cancel-btn{
+  margin-top:8px;
+  background:none;
+  border:1px solid var(--accent-coral);
+  color:var(--accent-coral);
+  border-radius:4px;
+  font-size:11px;
+  padding:5px 10px;
+  cursor:pointer;
+}
 </style>
 </head>
 <body>
@@ -110,20 +160,21 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
   <header class="app-head">
     <div class="eyebrow">公文式 ◯◯教室</div>
     <h1>個別面談 予約帳</h1>
-    <p>保護者の方は「予約する」、教室の先生は「教室管理」をお使いください</p>
+    <p>保護者の方は「予約する」「予約の確認」、教室の先生は「教室管理」をお使いください</p>
   </header>
 
   <!-- Firebase未設定の場合に出る案内 -->
   <div id="setupBanner" class="setup-banner" style="display:none;">
-    ⚠️ Firebaseの設定が未入力です。このファイル内の <code>firebaseConfig</code> を、ご自身のFirebaseプロジェクトの値に書き換えてください。手順はチャットの説明をご覧ください。
+    ⚠️ Firebaseの設定が未入力です。このファイル内の <code>firebaseConfig</code> を、ご自身のFirebaseプロジェクトの値に書き換えてください。
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" data-tab="parent">📔 予約する（保護者用）</button>
-    <button class="tab-btn" data-tab="teacher">🖋 教室管理（先生用）</button>
+    <button class="tab-btn active" data-tab="parent">📔 予約する</button>
+    <button class="tab-btn" data-tab="check">🔍 予約の確認</button>
+    <button class="tab-btn" data-tab="teacher">🖋 教室管理</button>
   </div>
 
-  <!-- 保護者用 -->
+  <!-- 保護者用：予約する -->
   <div id="tab-parent">
     <div class="card">
       <h2><span class="num">1</span>空いている時間を選ぶ</h2>
@@ -140,6 +191,24 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
       <button class="primary" id="bookBtn">この時間で予約する</button>
       <div class="note">※ ここで入力した情報は、教室の先生のみが確認できます。他の保護者には公開されません。</div>
       <div class="confirm-box" id="confirmBox"></div>
+    </div>
+  </div>
+
+  <!-- 保護者用：予約の確認 -->
+  <div id="tab-check" style="display:none;">
+    <div class="card">
+      <h2><span class="num">1</span>この端末でした予約</h2>
+      <div id="myBookingsList"></div>
+      <div id="emptyMyBookings" class="empty" style="display:none;">この端末で予約した記録が見つかりません。下の「予約番号で確認する」をお試しください。</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="num">2</span>予約番号で確認する</h2>
+      <p class="note">別の端末で予約した場合や、記録が消えてしまった場合は、予約確定時に表示された「予約番号」を入力してください。</p>
+      <label for="lookupCode">予約番号</label>
+      <input type="text" id="lookupCode" placeholder="例：A3F9X2" style="text-transform:uppercase;">
+      <button class="primary" id="lookupBtn">確認する</button>
+      <div id="lookupResult"></div>
     </div>
   </div>
 
@@ -188,17 +257,14 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
 <script>
 /* ================================================================
    ★★★ ここをあなた自身のFirebaseプロジェクトの値に書き換えてください ★★★
-   Firebaseコンソール → プロジェクトの設定 → マイアプリ → SDKの設定
-   でコピーできます。
 ================================================================ */
 const firebaseConfig = {
-  apiKey: "AIzaSyBBF417Tz1sYNMrREYqvccjGChjz0GN2z8",
-  authDomain: "kumon-mendan.firebaseapp.com",
-  projectId: "kumon-mendan",
-  storageBucket: "kumon-mendan.firebasestorage.app",
-  messagingSenderId: "660276988740",
-  appId: "1:660276988740:web:e17a22833c3d243235a511",
-  measurementId: "G-K52QVLY1KB"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 /* ================================================================ */
 
@@ -210,10 +276,11 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-let slots = [];      // 公開コレクション: 日時・空き状況のみ（個人情報なし）
-let bookingsCache = {}; // slotId -> {name, phone}  ※先生ログイン時のみ取得
+let slots = [];
 let selectedSlotId = null;
 let isTeacher = false;
+
+const MY_BOOKINGS_KEY = 'kumon-my-bookings';
 
 function showToast(msg){
   const t = document.getElementById('toast');
@@ -228,6 +295,29 @@ function fmtDate(d){
   return `${dt.getMonth()+1}月${dt.getDate()}日（${days[dt.getDay()]}）`;
 }
 
+/* 予約番号を生成（読みやすい英数字6桁） */
+function generateCode(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 0,O,1,I は除外
+  let code = '';
+  for(let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+
+/* この端末に予約記録を追加保存 */
+function saveMyBookingLocally(code, date, time){
+  let list = [];
+  try{ list = JSON.parse(localStorage.getItem(MY_BOOKINGS_KEY)) || []; }catch(e){ list = []; }
+  list.push({code, date, time});
+  localStorage.setItem(MY_BOOKINGS_KEY, JSON.stringify(list));
+}
+function getMyBookingsLocally(){
+  try{ return JSON.parse(localStorage.getItem(MY_BOOKINGS_KEY)) || []; }catch(e){ return []; }
+}
+function removeMyBookingLocally(code){
+  const list = getMyBookingsLocally().filter(b=>b.code!==code);
+  localStorage.setItem(MY_BOOKINGS_KEY, JSON.stringify(list));
+}
+
 /* ---------------- Firestore: 公開スロット情報のリアルタイム監視 ---------------- */
 db.collection('slots').onSnapshot(snap=>{
   slots = [];
@@ -237,8 +327,8 @@ db.collection('slots').onSnapshot(snap=>{
   renderTeacher();
 });
 
-/* 先生ログイン中だけ bookings（氏名・連絡先）も購読 */
 let unsubscribeBookings = null;
+let bookingsCache = {};
 function subscribeBookings(){
   unsubscribeBookings = db.collection('bookings').onSnapshot(snap=>{
     bookingsCache = {};
@@ -247,7 +337,7 @@ function subscribeBookings(){
   });
 }
 
-/* ---------------- 保護者側 ---------------- */
+/* ---------------- 保護者側：予約する ---------------- */
 function renderParent(){
   const list = document.getElementById('slotList');
   const empty = document.getElementById('emptyParent');
@@ -286,24 +376,126 @@ async function bookSlot(){
   const slot = slots.find(s=>s.id===selectedSlotId);
   if(!slot || slot.status==='booked'){ showToast('この枠はすでに予約されています'); return; }
 
+  const code = generateCode();
+
   try{
-    // スロット（公開情報）は空き→予約済みに更新
     await db.collection('slots').doc(slot.id).update({status:'booked'});
-    // 氏名・連絡先は非公開コレクションへ（先生ログイン時のみ読める）
-    await db.collection('bookings').doc(slot.id).set({name, phone, date:slot.date, time:slot.time});
+    await db.collection('bookings').doc(code).set({
+      slotId: slot.id, name, phone, date: slot.date, time: slot.time
+    });
   }catch(e){
     showToast('予約に失敗しました。電波状況を確認して、もう一度お試しください。');
     console.error(e);
     return;
   }
 
+  saveMyBookingLocally(code, slot.date, slot.time);
+
   const box = document.getElementById('confirmBox');
-  box.innerHTML = `予約が確定しました。<br><b>${fmtDate(slot.date)} ${slot.time}〜</b><br>当日、教室にてお待ちしております。`;
+  box.innerHTML = `
+    予約が確定しました。<br><b>${fmtDate(slot.date)} ${slot.time}〜</b><br>当日、教室にてお待ちしております。
+    <div class="code-box">
+      <div>
+        <div style="font-size:11px;opacity:.8;">予約番号（後で確認する際に使います）</div>
+        <div class="code-text">${code}</div>
+      </div>
+      <button id="copyCodeBtn" data-code="${code}">コピー</button>
+    </div>
+    <div class="note">この番号は「予約の確認」タブで予約状況を確認・キャンセルする際に必要です。スクリーンショットを撮るか、メモしておくことをおすすめします。</div>
+  `;
   box.classList.add('show');
+  document.getElementById('copyCodeBtn').addEventListener('click', (e)=>{
+    navigator.clipboard.writeText(e.target.dataset.code).then(()=>showToast('コピーしました'));
+  });
+
   document.getElementById('pName').value='';
   document.getElementById('pPhone').value='';
   selectedSlotId = null;
 }
+
+/* ---------------- 保護者側：予約の確認 ---------------- */
+async function renderMyBookings(){
+  const wrap = document.getElementById('myBookingsList');
+  const empty = document.getElementById('emptyMyBookings');
+  const local = getMyBookingsLocally();
+  wrap.innerHTML = '';
+  if(local.length===0){
+    empty.style.display='block';
+    return;
+  }
+  empty.style.display='none';
+
+  for(const item of local){
+    let live = null;
+    try{
+      const doc = await db.collection('bookings').doc(item.code).get();
+      if(doc.exists) live = doc.data();
+    }catch(e){ /* 通信エラー時はローカルの情報のみ表示 */ }
+
+    const div = document.createElement('div');
+    div.className = 'mybooking-card';
+    if(live){
+      div.innerHTML = `
+        <div class="mb-date">${fmtDate(live.date)} ${live.time}〜</div>
+        <div class="mb-code">予約番号：${item.code}</div>
+        <button class="cancel-btn" data-code="${item.code}" data-slot="${live.slotId}">この予約をキャンセルする</button>
+      `;
+    } else {
+      div.innerHTML = `
+        <div class="mb-date" style="opacity:.5;">${fmtDate(item.date)} ${item.time}〜（削除済み、または見つかりません）</div>
+        <div class="mb-code">予約番号：${item.code}</div>
+        <button class="cancel-btn" data-code="${item.code}" data-remove-only="1">この端末の記録から消す</button>
+      `;
+    }
+    wrap.appendChild(div);
+  }
+
+  wrap.querySelectorAll('.cancel-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const code = btn.dataset.code;
+      const slotId = btn.dataset.slot;
+      if(!btn.dataset.removeOnly){
+        if(!confirm('この予約を本当にキャンセルしますか？')) return;
+        try{
+          if(slotId){ await db.collection('slots').doc(slotId).update({status:'open'}); }
+          await db.collection('bookings').doc(code).delete();
+        }catch(e){ showToast('キャンセルに失敗しました'); return; }
+      }
+      removeMyBookingLocally(code);
+      showToast('キャンセルしました');
+      renderMyBookings();
+    });
+  });
+}
+
+async function lookupByCode(){
+  const codeInput = document.getElementById('lookupCode');
+  const code = codeInput.value.trim().toUpperCase();
+  const resultDiv = document.getElementById('lookupResult');
+  resultDiv.innerHTML = '';
+  if(!code){ showToast('予約番号を入力してください'); return; }
+  try{
+    const doc = await db.collection('bookings').doc(code).get();
+    if(!doc.exists){
+      resultDiv.innerHTML = `<div class="note" style="color:var(--accent-coral);">この予約番号は見つかりませんでした。番号をご確認ください。</div>`;
+      return;
+    }
+    const data = doc.data();
+    resultDiv.innerHTML = `
+      <div class="mybooking-card">
+        <div class="mb-date">${fmtDate(data.date)} ${data.time}〜</div>
+        <div class="mb-code">予約番号：${code}</div>
+      </div>
+    `;
+    // この端末にも記録として追加しておく
+    if(!getMyBookingsLocally().some(b=>b.code===code)){
+      saveMyBookingLocally(code, data.date, data.time);
+    }
+  }catch(e){
+    resultDiv.innerHTML = `<div class="note" style="color:var(--accent-coral);">確認中にエラーが発生しました。もう一度お試しください。</div>`;
+  }
+}
+document.getElementById('lookupBtn').addEventListener('click', lookupByCode);
 
 /* ---------------- 先生側：ログイン ---------------- */
 document.getElementById('loginBtn').addEventListener('click', async ()=>{
@@ -377,23 +569,26 @@ function renderTeacher(){
   } else {
     empty.style.display='none';
     slots.forEach(s=>{
-      const b = bookingsCache[s.id];
+      const booking = Object.entries(bookingsCache).find(([code,b])=>b.slotId===s.id);
+      const b = booking ? booking[1] : null;
+      const code = booking ? booking[0] : null;
       const row = document.createElement('div');
       row.className='list-row';
       row.innerHTML = `
         <div class="ltime">${fmtDate(s.date)} ${s.time}</div>
-        <div class="lname">${s.status==='booked' && b ? (b.name+'　'+(b.phone||'')) : (s.status==='booked' ? '読み込み中…' : '（空き）')}</div>
+        <div class="lname">${s.status==='booked' && b ? (b.name+'　'+(b.phone||'')+'　<span style="opacity:.5;">#'+code+'</span>') : (s.status==='booked' ? '読み込み中…' : '（空き）')}</div>
         <span class="badge ${s.status==='booked'?'booked':'open'}">${s.status==='booked'?'予約済':'空き'}</span>
-        <button class="del-btn" data-id="${s.id}">削除</button>
+        <button class="del-btn" data-id="${s.id}" data-code="${code||''}">削除</button>
       `;
       list.appendChild(row);
     });
     list.querySelectorAll('.del-btn').forEach(btn=>{
       btn.addEventListener('click', async (e)=>{
         const id = e.target.getAttribute('data-id');
+        const code = e.target.getAttribute('data-code');
         try{
           await db.collection('slots').doc(id).delete();
-          await db.collection('bookings').doc(id).delete();
+          if(code){ await db.collection('bookings').doc(code).delete(); }
         }catch(err){ showToast('削除に失敗しました'); }
       });
     });
@@ -406,7 +601,9 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('tab-parent').style.display = btn.dataset.tab==='parent' ? 'block':'none';
+    document.getElementById('tab-check').style.display = btn.dataset.tab==='check' ? 'block':'none';
     document.getElementById('tab-teacher').style.display = btn.dataset.tab==='teacher' ? 'block':'none';
+    if(btn.dataset.tab==='check'){ renderMyBookings(); }
   });
 });
 </script>
