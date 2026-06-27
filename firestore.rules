@@ -14,38 +14,58 @@ service cloud.firestore {
         (resource.data.status == 'booked' && request.resource.data.status == 'open');
     }
 
-    // 「予約」コレクション：氏名・連絡先など個人情報を含む
-    // ドキュメントID = 予約番号（ランダムな英数字6桁）
+    // 「予約」コレクション：氏名・連絡先・メールアドレスなど個人情報を含む
     match /bookings/{bookingCode} {
-
-      // 予約番号を1件ピンポイントで取得 → 誰でも可
       allow get: if true;
-
-      // コレクション全件の一覧取得 → 先生のログインが必須
       allow list: if request.auth != null;
-
-      // 新規作成（保護者の予約）→ 内容を検証してから許可
-      // 【修正】なりすまし・データ汚染対策として、以下を必須チェックする
-      //   - name / phone / date / time / slotId が文字列であること
-      //   - name は1〜50文字、phone は0〜30文字（過大なデータ送信を防止）
-      //   - 紐付け先の slots/{slotId} が実在し、現在 "open" であること
-      //     （存在しない枠IDや、すでに予約済みの枠への偽装予約を防止）
       allow create: if
-        request.resource.data.keys().hasAll(['slotId','name','phone','date','time'])
+        request.resource.data.keys().hasAll(['slotId','name','phone','date','time','email'])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 50
         && request.resource.data.phone is string
         && request.resource.data.phone.size() <= 30
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 100
         && request.resource.data.date is string
         && request.resource.data.time is string
         && request.resource.data.slotId is string
         && get(/databases/$(database)/documents/slots/$(request.resource.data.slotId)).data.status == 'open';
-
-      // 削除（キャンセル）→ 予約番号を知っていれば可（合言葉方式のため、誰でも実行可能）
       allow delete: if true;
-
       allow update: if false;
+    }
+
+    // 「mail」コレクション：Firebaseエクステンション「Trigger Email from Firestore」が監視する場所
+    // 【重要】本文(html/subject)の自由入力は許可せず、
+    //         あらかじめ用意した2種類のテンプレート名＋差し込みデータのみを許可する。
+    //         これにより、サイトを悪用して任意の文面・宛先へ大量メールを送る
+    //         「迷惑メール踏み台」化のリスクを防ぐ。
+    match /mail/{mailId} {
+      allow create: if
+        request.resource.data.to is list
+        && request.resource.data.to.size() == 1
+        && request.resource.data.to[0] is string
+        && request.resource.data.to[0].size() <= 100
+        && request.resource.data.template.name is string
+        && request.resource.data.template.name in ['bookingConfirmationParent', 'bookingNotifyTeacher']
+        && request.resource.data.template.data.keys().hasOnly(['name','phone','date','time','code'])
+        && request.resource.data.template.data.name is string
+        && request.resource.data.template.data.name.size() <= 50
+        && request.resource.data.template.data.phone is string
+        && request.resource.data.template.data.phone.size() <= 30
+        && request.resource.data.template.data.date is string
+        && request.resource.data.template.data.time is string
+        && request.resource.data.template.data.code is string
+        && request.resource.data.template.data.code.size() == 6;
+      // 送信後の内容は誰も読み書き・削除できない（エクステーションが内部処理する）
+      allow read, update, delete: if request.auth != null;
+    }
+
+    // 「templates」コレクション：メールの文面（件名・本文）
+    // 先生（ログイン済み）だけが編集できる。保護者側のコードからは書き込み不可。
+    match /templates/{templateId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
     }
   }
 }
