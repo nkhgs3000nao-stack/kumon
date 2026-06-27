@@ -186,8 +186,10 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
       <input type="text" id="pName" placeholder="例：たろう" maxlength="50">
       <label for="pPhone">連絡先（電話番号 または LINE名）</label>
       <input type="text" id="pPhone" placeholder="例：090-XXXX-XXXX" maxlength="30">
+      <label for="pEmail">予約確認メールを送るメールアドレス</label>
+      <input type="email" id="pEmail" placeholder="例：example@gmail.com" maxlength="100">
       <button class="primary" id="bookBtn">この時間で予約する</button>
-      <div class="note">※ ここで入力した情報は、教室の先生のみが確認できます。他の保護者には公開されません。</div>
+      <div class="note">※ ここで入力した情報は、教室の先生のみが確認できます。他の保護者には公開されません。確定後、入力したメールアドレスに予約内容をお送りします。</div>
       <div class="confirm-box" id="confirmBox"></div>
     </div>
   </div>
@@ -221,8 +223,7 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
       <div class="error-msg" id="authError"></div>
       <p class="note">
         アカウントは、サイト上ではなく <b>Firebaseコンソール → Authentication → Users → 「ユーザーを追加」</b> から、
-        先生自身が事前に1つだけ作成してください。サイト上に「アカウント作成」ボタンを置かないことで、
-        部外者が先生としてログインできてしまう不具合を防いでいます。
+        先生自身が事前に1つだけ作成してください。
       </p>
     </div>
 
@@ -260,14 +261,17 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
    ★★★ ここをあなた自身のFirebaseプロジェクトの値に書き換えてください ★★★
 ================================================================ */
 const firebaseConfig = {
-  apiKey: "AIzaSyBBF417Tz1sYNMrREYqvccjGChjz0GN2z8",
-  authDomain: "kumon-mendan.firebaseapp.com",
-  projectId: "kumon-mendan",
-  storageBucket: "kumon-mendan.firebasestorage.app",
-  messagingSenderId: "660276988740",
-  appId: "1:660276988740:web:e17a22833c3d243235a511",
-  measurementId: "G-K52QVLY1KB"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
+
+/* ★★★ 先生（教室）が予約通知を受け取るメールアドレス ★★★
+   ここはパスワードではなく単なる宛先メールアドレスなので、公開されても問題ありません。 */
+const TEACHER_NOTIFY_EMAIL = "your-teacher-address@example.com";
 /* ================================================================ */
 
 if(firebaseConfig.apiKey === "YOUR_API_KEY"){
@@ -281,7 +285,7 @@ const db = firebase.firestore();
 let slots = [];
 let selectedSlotId = null;
 let isTeacher = false;
-let busy = false; // 二重送信防止
+let busy = false;
 
 const MY_BOOKINGS_KEY = 'kumon-my-bookings';
 
@@ -299,10 +303,14 @@ function fmtDate(d){
 }
 
 function generateCode(){
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 0,O,1,I は除外
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
   for(let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
   return code;
+}
+
+function isValidEmail(email){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 function saveMyBookingLocally(code, date, time){
@@ -369,19 +377,25 @@ function selectSlot(id){
   document.getElementById('bookingFormCard').scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
-/* 【修正】枠の更新と予約データの作成を1つのトランザクションにまとめる。
-   どちらか片方だけ成功する「幽霊予約」状態を防ぐ。 */
+/* 【メール通知対応】予約確定と同じトランザクション内で、
+   保護者向け・先生向けの2件の送信指示を mail コレクションへ書き込む。
+   本文は書き込まず、あらかじめ用意したテンプレート名＋差し込みデータのみを渡す
+   （自由記述の本文を許可すると迷惑メール送信の踏み台にされるリスクがあるため）。 */
 async function bookSlot(){
   if(busy) return;
   const name = document.getElementById('pName').value.trim();
   const phone = document.getElementById('pPhone').value.trim();
+  const email = document.getElementById('pEmail').value.trim();
   if(!selectedSlotId){ showToast('時間を選んでください'); return; }
   if(!name){ showToast('お名前を入力してください'); return; }
+  if(!email || !isValidEmail(email)){ showToast('正しいメールアドレスを入力してください'); return; }
   if(name.length > 50 || phone.length > 30){ showToast('入力が長すぎます'); return; }
 
   const slotRef = db.collection('slots').doc(selectedSlotId);
   const code = generateCode();
   const bookingRef = db.collection('bookings').doc(code);
+  const mailParentRef = db.collection('mail').doc();
+  const mailTeacherRef = db.collection('mail').doc();
 
   busy = true;
   document.getElementById('bookBtn').disabled = true;
@@ -392,13 +406,27 @@ async function bookSlot(){
       const slotDoc = await tx.get(slotRef);
       if(!slotDoc.exists) throw new Error('この枠は削除されています');
       if(slotDoc.data().status === 'booked') throw new Error('この枠はすでに予約されています');
+      const date = slotDoc.data().date;
+      const time = slotDoc.data().time;
 
       tx.update(slotRef, {status:'booked'});
-      tx.set(bookingRef, {
-        slotId: selectedSlotId,
-        name, phone,
-        date: slotDoc.data().date,
-        time: slotDoc.data().time
+      tx.set(bookingRef, {slotId: selectedSlotId, name, phone, email, date, time});
+
+      // 保護者向け確認メール
+      tx.set(mailParentRef, {
+        to: [email],
+        template: {
+          name: 'bookingConfirmationParent',
+          data: {name, phone, date, time, code}
+        }
+      });
+      // 先生向け通知メール
+      tx.set(mailTeacherRef, {
+        to: [TEACHER_NOTIFY_EMAIL],
+        template: {
+          name: 'bookingNotifyTeacher',
+          data: {name, phone, date, time, code}
+        }
       });
     });
 
@@ -414,7 +442,7 @@ async function bookSlot(){
         </div>
         <button id="copyCodeBtn" data-code="${code}">コピー</button>
       </div>
-      <div class="note">この番号は「予約の確認」タブで予約状況を確認・キャンセルする際に必要です。スクリーンショットを撮るか、メモしておくことをおすすめします。</div>
+      <div class="note">この番号は「予約の確認」タブで予約状況を確認・キャンセルする際に必要です。入力いただいたメールアドレスにも確認メールをお送りしました（数分かかる場合があります）。</div>
     `;
     box.classList.add('show');
     document.getElementById('copyCodeBtn').addEventListener('click', (e)=>{
@@ -422,6 +450,7 @@ async function bookSlot(){
     });
     document.getElementById('pName').value='';
     document.getElementById('pPhone').value='';
+    document.getElementById('pEmail').value='';
     selectedSlotId = null;
 
   }catch(e){
@@ -451,7 +480,7 @@ async function renderMyBookings(){
     try{
       const doc = await db.collection('bookings').doc(item.code).get();
       if(doc.exists) live = doc.data();
-    }catch(e){ /* 通信エラー時はローカルの情報のみ表示 */ }
+    }catch(e){ }
 
     const div = document.createElement('div');
     div.className = 'mybooking-card';
@@ -494,7 +523,6 @@ async function renderMyBookings(){
   });
 }
 
-/* 【修正】キャンセルも「枠を空きに戻す」「予約データを削除する」を1トランザクションに */
 async function cancelBookingTransaction(code, slotId){
   const bookingRef = db.collection('bookings').doc(code);
   const slotRef = slotId ? db.collection('slots').doc(slotId) : null;
@@ -537,10 +565,7 @@ async function lookupByCode(){
 }
 document.getElementById('lookupBtn').addEventListener('click', lookupByCode);
 
-/* ---------------- 先生側：ログイン ----------------
-   【修正】自己アカウント作成ボタンを廃止。
-   先生アカウントはFirebaseコンソールの Authentication > Users から
-   事前に1つだけ作成しておく運用にする（誰でも先生になれる脆弱性を防止）。 */
+/* ---------------- 先生側：ログイン ---------------- */
 document.getElementById('loginBtn').addEventListener('click', async ()=>{
   const email = document.getElementById('emailInput').value.trim();
   const pass = document.getElementById('passInput').value;
@@ -624,7 +649,6 @@ function renderTeacher(){
   }
 }
 
-/* 【修正】先生による削除も1トランザクションにまとめる */
 async function deleteSlotTransaction(slotId, code){
   const slotRef = db.collection('slots').doc(slotId);
   const bookingRef = code ? db.collection('bookings').doc(code) : null;
