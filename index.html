@@ -644,17 +644,44 @@ async function renderMyBookings(){
   });
 }
 
+/* 【改修】キャンセル時に、保護者向け・先生向けのキャンセル通知メールも
+   同じトランザクション内で作成する。本文は固定テンプレート（bookingCancelNotifyParent /
+   bookingCancelNotifyTeacher）に差し込むだけで、自由記述は許可しない。 */
 async function cancelBookingTransaction(code, slotId){
   const bookingRef = db.collection('bookings').doc(code);
   const slotRef = slotId ? db.collection('slots').doc(slotId) : null;
+  const mailParentRef = db.collection('mail').doc();
+  const mailTeacherRef = db.collection('mail').doc();
+
   await db.runTransaction(async (tx)=>{
     const bookingDoc = await tx.get(bookingRef);
     if(!bookingDoc.exists) throw new Error('この予約は既にキャンセル済みのようです');
+    const data = bookingDoc.data();
+
     if(slotRef){
       const slotDoc = await tx.get(slotRef);
       if(slotDoc.exists){ tx.update(slotRef, {status:'open'}); }
     }
     tx.delete(bookingRef);
+
+    // 保護者向けキャンセル確認メール（入力されたメールアドレスがある場合のみ）
+    if(data.email){
+      tx.set(mailParentRef, {
+        to: [data.email],
+        template: {
+          name: 'bookingCancelNotifyParent',
+          data: {name: data.name, phone: data.phone||'', date: data.date, time: data.time, code}
+        }
+      });
+    }
+    // 先生向けキャンセル通知メール
+    tx.set(mailTeacherRef, {
+      to: [TEACHER_NOTIFY_EMAIL],
+      template: {
+        name: 'bookingCancelNotifyTeacher',
+        data: {name: data.name, phone: data.phone||'', date: data.date, time: data.time, code}
+      }
+    });
   });
 }
 
