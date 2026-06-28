@@ -60,16 +60,94 @@ button.primary:active{transform:scale(.97);}
 button.primary:disabled{opacity:.5; cursor:not-allowed;}
 button.linklike{background:none;border:none;color:var(--ink-navy);text-decoration:underline;font-size:12px;cursor:pointer;padding:0;margin-top:10px;}
 
-.slot-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-@media (max-width:480px){.slot-grid{grid-template-columns:1fr;}}
-.slot{border:1.5px solid var(--line-blue);border-radius:5px;padding:11px 12px;background:#FDFCF8;cursor:pointer;transition:border-color .15s, background .15s;position:relative;}
-.slot:hover{border-color:var(--accent-coral);}
-.slot .date{font-size:11px;color:var(--graphite);opacity:.7;}
-.slot .time{font-family:'Zen Maru Gothic', sans-serif;font-weight:700;font-size:17px;color:var(--ink-navy);letter-spacing:.03em;}
-.slot.taken{background:#F1EEE4;cursor:not-allowed;opacity:.55;}
-.slot.taken:hover{border-color:var(--line-blue);}
-.slot.selected{border-color:var(--accent-coral);background:#FFF3EE;}
 .stamp{position:absolute;top:8px; right:8px;width:34px;height:34px;border-radius:50%;border:2px solid var(--accent-coral);color:var(--accent-coral);font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;transform:rotate(-12deg);font-family:'Zen Maru Gothic';letter-spacing:-1px;}
+
+/* ---- 予約表（縦軸：日付 / 横軸：時刻） ---- */
+.timetable-wrap{
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  border:1px solid var(--line-blue);
+  border-radius:6px;
+}
+table.timetable{
+  border-collapse:collapse;
+  width:100%;
+  font-size:12.5px;
+  background:#FDFCF8;
+}
+table.timetable th, table.timetable td{
+  border:1px solid var(--line-blue);
+  text-align:center;
+  white-space:nowrap;
+  padding:0;
+}
+table.timetable thead th{
+  background:var(--ink-navy);
+  color:#fff;
+  font-family:'Zen Maru Gothic', sans-serif;
+  font-weight:700;
+  font-size:12px;
+  padding:8px 10px;
+  position:sticky;
+  top:0;
+  z-index:2;
+}
+table.timetable thead th.corner{
+  background:var(--ink-navy);
+  position:sticky;
+  left:0;
+  z-index:3;
+}
+table.timetable tbody th{
+  background:#EFEAD8;
+  color:var(--ink-navy);
+  font-weight:700;
+  font-size:12px;
+  padding:8px 10px;
+  position:sticky;
+  left:0;
+  z-index:1;
+}
+table.timetable td{
+  min-width:62px;
+  height:46px;
+}
+.tt-cell{
+  width:100%;height:100%;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  font-size:11px;
+  line-height:1.3;
+  padding:4px;
+  transition:background .15s;
+}
+.tt-cell.tt-empty{
+  background:repeating-linear-gradient(45deg, #ECE8DC, #ECE8DC 4px, #F4F1E6 4px, #F4F1E6 8px);
+  cursor:default;
+}
+.tt-cell.tt-open{
+  background:#E8F0E9;
+  color:var(--moss);
+  font-weight:700;
+}
+.tt-cell.tt-open:hover{background:#D8E9DB;}
+.tt-cell.tt-selected{
+  background:var(--accent-coral);
+  color:#fff;
+  font-weight:700;
+}
+.tt-cell.tt-booked{
+  background:#FCE9E4;
+  color:var(--accent-coral);
+  font-weight:700;
+  cursor:default;
+}
+.tt-cell.tt-booked.tt-clickable{cursor:pointer;}
+.tt-cell.tt-booked.tt-clickable:hover{background:#F8D7CE;}
+.tt-cell .tt-name{font-size:10px; opacity:.85; max-width:58px; overflow:hidden; text-overflow:ellipsis;}
+.legend{display:flex; gap:14px; font-size:11px; margin-top:10px; flex-wrap:wrap;}
+.legend span{display:inline-flex; align-items:center; gap:5px;}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block;}
 
 .empty{text-align:center;padding:30px 10px;color:var(--graphite);opacity:.6;font-size:13px;}
 .list-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px dashed var(--line-blue);font-size:13px; gap:8px;}
@@ -176,7 +254,12 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
   <div id="tab-parent">
     <div class="card">
       <h2><span class="num">1</span>空いている時間を選ぶ</h2>
-      <div id="slotList" class="slot-grid"></div>
+      <div id="slotList" class="timetable-wrap"></div>
+      <div class="legend">
+        <span><i style="background:#E8F0E9;"></i>空き（クリックで選択）</span>
+        <span><i style="background:#FCE9E4;"></i>予約済み</span>
+        <span><i style="background:#ECE8DC;"></i>枠なし</span>
+      </div>
       <div id="emptyParent" class="empty" style="display:none;">現在、予約できる枠がありません。教室からのご連絡をお待ちください。</div>
     </div>
 
@@ -246,7 +329,12 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
 
       <div class="card">
         <h2><span class="num">2</span>予約一覧（先生のみ閲覧可）</h2>
-        <div id="teacherList"></div>
+        <div id="teacherList" class="timetable-wrap"></div>
+        <div class="legend">
+          <span><i style="background:#E8F0E9;"></i>空き</span>
+          <span><i style="background:#FCE9E4;"></i>予約済み（クリックで削除）</span>
+          <span><i style="background:#ECE8DC;"></i>枠なし</span>
+        </div>
         <div id="emptyTeacher" class="empty" style="display:none;">まだ枠が登録されていません。上のフォームから追加してください。</div>
       </div>
     </div>
@@ -261,7 +349,6 @@ button.linklike{background:none;border:none;color:var(--ink-navy);text-decoratio
    ★★★ ここをあなた自身のFirebaseプロジェクトの値に書き換えてください ★★★
 ================================================================ */
 const firebaseConfig = {
-
     apiKey: "AIzaSyBBF417Tz1sYNMrREYqvccjGChjz0GN2z8",
     authDomain: "kumon-mendan.firebaseapp.com",
     databaseURL: "https://kumon-mendan-default-rtdb.firebaseio.com",
@@ -351,26 +438,56 @@ function subscribeBookings(){
 }
 
 /* ---------------- 保護者側：予約する ---------------- */
+/* 全スロットから「日付の一覧」「時刻の一覧」を抽出（重複なし・昇順） */
+function getAxisValues(){
+  const dateSet = new Set();
+  const timeSet = new Set();
+  slots.forEach(s=>{ dateSet.add(s.date); timeSet.add(s.time); });
+  const dates = Array.from(dateSet).sort();
+  const times = Array.from(timeSet).sort();
+  return {dates, times};
+}
+
+function findSlotByDateTime(date, time){
+  return slots.find(s=>s.date===date && s.time===time);
+}
+
 function renderParent(){
-  const list = document.getElementById('slotList');
+  const wrap = document.getElementById('slotList');
   const empty = document.getElementById('emptyParent');
-  list.innerHTML = '';
+  wrap.innerHTML = '';
   if(slots.length===0){
     empty.style.display='block';
-  } else {
-    empty.style.display='none';
-    slots.forEach(s=>{
-      const div = document.createElement('div');
-      div.className = 'slot' + (s.status==='booked' ? ' taken' : '') + (s.id===selectedSlotId ? ' selected':'');
-      div.innerHTML = `<div class="date">${fmtDate(s.date)}</div><div class="time">${s.time}〜</div>`;
-      if(s.status==='booked'){
-        div.innerHTML += `<div class="stamp">予約済</div>`;
-      } else {
-        div.addEventListener('click', ()=>selectSlot(s.id));
-      }
-      list.appendChild(div);
-    });
+    return;
   }
+  empty.style.display='none';
+  const {dates, times} = getAxisValues();
+
+  let html = '<table class="timetable"><thead><tr><th class="corner">日付＼時刻</th>';
+  times.forEach(t=> html += `<th>${t}</th>`);
+  html += '</tr></thead><tbody>';
+
+  dates.forEach(d=>{
+    html += `<tr><th>${fmtDate(d)}</th>`;
+    times.forEach(t=>{
+      const s = findSlotByDateTime(d, t);
+      if(!s){
+        html += `<td><div class="tt-cell tt-empty"></div></td>`;
+      } else if(s.status==='booked'){
+        html += `<td><div class="tt-cell tt-booked">予約済</div></td>`;
+      } else {
+        const sel = s.id===selectedSlotId ? ' tt-selected' : ' tt-open';
+        html += `<td><div class="tt-cell${sel}" data-slot-id="${s.id}">${s.id===selectedSlotId?'選択中':'空き'}</div></td>`;
+      }
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('.tt-cell[data-slot-id]').forEach(cell=>{
+    cell.addEventListener('click', ()=> selectSlot(cell.dataset.slotId));
+  });
 }
 
 function selectSlot(id){
@@ -616,41 +733,61 @@ document.getElementById('addSlotBtn').addEventListener('click', addSlot);
 
 function renderTeacher(){
   if(!isTeacher) return;
-  const list = document.getElementById('teacherList');
+  const wrap = document.getElementById('teacherList');
   const empty = document.getElementById('emptyTeacher');
-  list.innerHTML='';
+  wrap.innerHTML='';
   if(slots.length===0){
     empty.style.display='block';
-  } else {
-    empty.style.display='none';
-    slots.forEach(s=>{
-      const booking = Object.entries(bookingsCache).find(([code,b])=>b.slotId===s.id);
-      const b = booking ? booking[1] : null;
-      const code = booking ? booking[0] : null;
-      const row = document.createElement('div');
-      row.className='list-row';
-      row.innerHTML = `
-        <div class="ltime">${fmtDate(s.date)} ${s.time}</div>
-        <div class="lname">${s.status==='booked' && b ? (b.name+'　'+(b.phone||'')+'　<span style="opacity:.5;">#'+code+'</span>') : (s.status==='booked' ? '読み込み中…' : '（空き）')}</div>
-        <span class="badge ${s.status==='booked'?'booked':'open'}">${s.status==='booked'?'予約済':'空き'}</span>
-        <button class="del-btn" data-id="${s.id}" data-code="${code||''}">削除</button>
-      `;
-      list.appendChild(row);
-    });
-    list.querySelectorAll('.del-btn').forEach(btn=>{
-      btn.addEventListener('click', async (e)=>{
-        const id = e.target.getAttribute('data-id');
-        const code = e.target.getAttribute('data-code');
-        e.target.disabled = true;
-        try{
-          await deleteSlotTransaction(id, code);
-        }catch(err){
-          showToast('削除に失敗しました');
-          e.target.disabled = false;
-        }
-      });
-    });
+    return;
   }
+  empty.style.display='none';
+  const {dates, times} = getAxisValues();
+
+  let html = '<table class="timetable"><thead><tr><th class="corner">日付＼時刻</th>';
+  times.forEach(t=> html += `<th>${t}</th>`);
+  html += '</tr></thead><tbody>';
+
+  dates.forEach(d=>{
+    html += `<tr><th>${fmtDate(d)}</th>`;
+    times.forEach(t=>{
+      const s = findSlotByDateTime(d, t);
+      if(!s){
+        html += `<td><div class="tt-cell tt-empty"></div></td>`;
+      } else if(s.status==='booked'){
+        const booking = Object.entries(bookingsCache).find(([code,b])=>b.slotId===s.id);
+        const b = booking ? booking[1] : null;
+        const code = booking ? booking[0] : '';
+        const label = b ? b.name : '…';
+        html += `<td><div class="tt-cell tt-booked tt-clickable" data-slot-id="${s.id}" data-code="${code}" title="クリックで削除">
+                    <span class="tt-name">${label}</span>
+                  </div></td>`;
+      } else {
+        html += `<td><div class="tt-cell tt-open tt-clickable" data-slot-id="${s.id}" data-code="" title="クリックで削除">空き</div></td>`;
+      }
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('.tt-cell.tt-clickable').forEach(cell=>{
+    cell.addEventListener('click', async ()=>{
+      const slotId = cell.dataset.slotId;
+      const code = cell.dataset.code;
+      if(cell.classList.contains('tt-booked')){
+        if(!confirm('この予約枠を削除しますか？（予約データも削除されます）')) return;
+      } else {
+        if(!confirm('この空き枠を削除しますか？')) return;
+      }
+      cell.style.opacity = '.3';
+      try{
+        await deleteSlotTransaction(slotId, code);
+      }catch(err){
+        showToast('削除に失敗しました');
+        cell.style.opacity = '1';
+      }
+    });
+  });
 }
 
 async function deleteSlotTransaction(slotId, code){
