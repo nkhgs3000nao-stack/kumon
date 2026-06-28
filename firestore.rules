@@ -47,7 +47,7 @@ service cloud.firestore {
         && request.resource.data.to[0] is string
         && request.resource.data.to[0].size() <= 100
         && request.resource.data.template.name is string
-        && request.resource.data.template.name in ['bookingConfirmationParent', 'bookingNotifyTeacher']
+        && request.resource.data.template.name in ['bookingConfirmationParent', 'bookingNotifyTeacher', 'bookingCancelNotifyParent', 'bookingCancelNotifyTeacher']
         && request.resource.data.template.data.keys().hasOnly(['name','phone','date','time','code'])
         && request.resource.data.template.data.name is string
         && request.resource.data.template.data.name.size() <= 50
