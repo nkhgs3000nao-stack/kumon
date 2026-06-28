@@ -463,13 +463,13 @@ function renderParent(){
   empty.style.display='none';
   const {dates, times} = getAxisValues();
 
-  let html = '<table class="timetable"><thead><tr><th class="corner">日付＼時刻</th>';
-  times.forEach(t=> html += `<th>${t}</th>`);
+  let html = '<table class="timetable"><thead><tr><th class="corner">時刻＼日付</th>';
+  dates.forEach(d=> html += `<th>${fmtDate(d)}</th>`);
   html += '</tr></thead><tbody>';
 
-  dates.forEach(d=>{
-    html += `<tr><th>${fmtDate(d)}</th>`;
-    times.forEach(t=>{
+  times.forEach(t=>{
+    html += `<tr><th>${t}</th>`;
+    dates.forEach(d=>{
       const s = findSlotByDateTime(d, t);
       if(!s){
         html += `<td><div class="tt-cell tt-empty"></div></td>`;
@@ -743,13 +743,13 @@ function renderTeacher(){
   empty.style.display='none';
   const {dates, times} = getAxisValues();
 
-  let html = '<table class="timetable"><thead><tr><th class="corner">日付＼時刻</th>';
-  times.forEach(t=> html += `<th>${t}</th>`);
+  let html = '<table class="timetable"><thead><tr><th class="corner">時刻＼日付</th>';
+  dates.forEach(d=> html += `<th>${fmtDate(d)}</th>`);
   html += '</tr></thead><tbody>';
 
-  dates.forEach(d=>{
-    html += `<tr><th>${fmtDate(d)}</th>`;
-    times.forEach(t=>{
+  times.forEach(t=>{
+    html += `<tr><th>${t}</th>`;
+    dates.forEach(d=>{
       const s = findSlotByDateTime(d, t);
       if(!s){
         html += `<td><div class="tt-cell tt-empty"></div></td>`;
